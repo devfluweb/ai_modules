@@ -1,244 +1,316 @@
 """
 JD Extraction Prompt - Final Version for Gemini 2.5 Flash
-Extracts: must_have_skills, good_to_have_skills, soft_skills, 
+Extracts: must_have_skills, good_to_have_skills, soft_skills,
 domain_expertise, accolades_keyword, exception_skills, jd_snapshot
+
+NOTE:
+- This prompt is optimized for Gemini 2.5 Flash.
+- It is used for CV–JD matching in a production system.
+- Keep this file structure the same to avoid integration issues.
 """
 
 def get_jd_extraction_prompt(jd_text: str) -> str:
     """
     Gemini 2.5 Flash optimized JD extraction prompt.
-    Generates LinkedIn-style social media snapshot (~200 words).
+    Generates a structured JSON and a LinkedIn-style job snapshot.
     """
-    return f"""You are an ELITE Technical Recruiter AND Social Media Expert. Extract JD details with 100% accuracy AND create an engaging LinkedIn post.
+    return f"""You are a PRODUCTION-GRADE Job Description Extractor inside an AI Recruitment Platform.
+Your output will be used for automated CV–JD matching and scoring.
+Accuracy, consistency, and NO hallucinations are critical.
 
-═══════════════════════════════════════════════════════════════
-MISSION: Extract skills + Generate LinkedIn-ready job post
-═══════════════════════════════════════════════════════════════
+You MUST follow ALL instructions below EXACTLY.
 
-## STEP 1: ANALYZE JD CONTEXT
+────────────────────────────────────────────────────────
+PHASE 1 — UNDERSTAND THE JD (INTERNAL ONLY)
+────────────────────────────────────────────────────────
 
-Read the ENTIRE JD to understand:
-- Role level (junior/mid/senior/lead/principal)
-- Domain (backend/frontend/cloud/security/data/devops)
-- Company type (startup/enterprise/product)
-- Tech stack ecosystem
+1. Carefully read the ENTIRE job description (JD) provided later.
+2. Internally infer (for your reasoning only, DO NOT output directly):
+   - Role type (e.g., backend, frontend, fullstack, ml, data, devops, mobile, security, qa, embedded, enterprise, cloud, etc.)
+   - Experience level (e.g., junior, mid, senior, lead)
+   - Core responsibilities and main problem space
 
-## STEP 2: EXTRACT MUST-HAVE SKILLS
+You will NOT output these internal inferences directly.
+They are only to guide your extraction quality.
 
-**MUST-HAVE = Non-negotiable technical requirements**
+────────────────────────────────────────────────────────
+PHASE 2 — SKILL EXTRACTION LOGIC (VERY IMPORTANT)
+────────────────────────────────────────────────────────
 
-✅ Extract if:
-- "Required", "must have", "mandatory", "essential"
-- "Strong experience in", "proficient with", "expert in"
-- "X+ years of experience with [skill]"
-- Skills in PRIMARY responsibilities (first 3-4 bullets)
-- Core tech stack in job title or role overview
+You must extract ONLY SKILLS / CAPABILITIES, not generic phrases or responsibilities.
 
-**Context-based extraction:**
-- "Senior Python Developer" → python is must-have
-- "Strong Azure experience required" → azure is must-have
-- Just "Python" listed without context → must-have (default)
+All skill tokens MUST be:
+- lowercase
+- without spaces (use camelCase or single tokens where needed)
+- specific and meaningful
 
-**Standardization (use abbreviated/short forms):**
-react, angular, vue, python, java, javascript, nodejs, typescript,
-aws, azure, gcp, docker, kubernetes, terraform, jenkins,
-mysql, postgresql, mongodb, redis, elasticsearch,
-django, flask, fastapi, spring, express,
-ml, ai, tensorflow, pytorch, sklearn,
-restapi, graphql, microservices, cicd
+Examples:
+- "Node.js" → "nodejs"
+- "REST APIs" → "restapi"
+- "Time management" → "timemanagement"
+- "C++" → "c++"
 
-## STEP 3: EXTRACT GOOD-TO-HAVE SKILLS
+Never include generic phrases like "software development", "web applications", "excellent", "strong", etc., as skills.
 
-**GOOD-TO-HAVE = Beneficial but not required**
 
-✅ Extract if:
-- "Nice to have", "preferred", "bonus", "plus", "a plus"
-- "Familiarity with", "exposure to", "knowledge of"
-- "Would be great if you know"
-- Secondary/additional technologies
-- Skills in "preferred" or "bonus" section
+────────────────────────────────────────────────────────
+PHASE 2.1 — MUST-HAVE SKILLS (STRICT MODE)
+────────────────────────────────────────────────────────
 
-Use same standardization as must-have.
+You are in STRICT mode for must_have_skills.
 
-## STEP 4: EXTRACT SOFT SKILLS
+A skill MUST be placed under "must_have_skills" ONLY IF:
 
-**SOFT = Non-technical abilities**
+1) It is clearly part of the CORE tech stack or responsibilities, AND
+2) It is described as REQUIRED, MANDATORY, or ESSENTIAL using words such as:
+   - "must have", "required", "mandatory", "non-negotiable"
+   - "strong experience in", "hands-on experience with", "proficient in", "expert in"
+   - "X+ years of experience with [skill]"
+   AND/OR
+3) The job title itself strongly implies that skill as central
+   - "React Developer" → react is must-have
+   - "Node.js Backend Engineer" → nodejs is must-have
+   - "Python Data Engineer" → python is must-have
 
-✅ Extract if mentioned:
-- Collaboration: "team player", "cross-functional", "stakeholder management"
-- Communication: "excellent communication", "client-facing", "presentations"
-- Leadership: "mentor", "lead projects", "technical leadership"
-- Methodologies: "agile", "scrum", "kanban"
-- Problem-solving: "analytical thinking", "creative problem solver"
+ADDITIONAL RULES:
+- You MUST be selective.
+- Do NOT dump every mentioned technology into must_have_skills.
+  - Choose ONLY the most critical ones based on:
+    - direct connection to primary responsibilities,
+    - frequency of mention,
+    - importance for performing the role,
+    - alignment with the job title.
 
-**CRITICAL:** Even if JD says "must have strong communication", it goes in soft_skills (NOT must-have)!
+If a skill is important but not clearly mandatory, put it in good_to_have_skills instead.
 
-Common soft skills (lowercase):
-leadership, communication, teamwork, problemsolving, agile, scrum,
-mentoring, collaboration, projectmanagement, analytical
 
-## STEP 5: EXTRACT DOMAIN EXPERTISE
+────────────────────────────────────────────────────────
+PHASE 2.2 — GOOD-TO-HAVE SKILLS
+────────────────────────────────────────────────────────
 
-**DOMAIN = Industry/sector focus**
+A skill belongs to "good_to_have_skills" if:
 
-✅ Extract industry + specific areas:
-- "Fintech experience with payment gateways" → ["fintech", "payment systems"]
-- "Healthcare compliance background" → ["healthcare", "regulatory compliance"]
-- "E-commerce platform development" → ["ecommerce", "retail"]
+- It is clearly OPTIONAL:
+  - Keywords in JD: "nice to have", "preferred", "good to have", "bonus", "a plus", "added advantage", "optional"
+- It appears as part of a long tech list but is not emphasized as core.
+- It supports the role but is not essential to perform daily responsibilities.
+- It is mentioned as "familiarity with", "exposure to", "knowledge of", or "experience with" without strong mandatory wording.
 
-Common domains:
-fintech, banking, healthcare, ecommerce, insurance, telecom,
-education, cybersecurity, cloud services, legal, manufacturing
+You can include more skills here than in must_have_skills, but still avoid random noise.
 
-## STEP 6: EXTRACT ACCOLADES/CERTIFICATIONS
 
-**ACCOLADES = Required/preferred certifications & qualifications**
+────────────────────────────────────────────────────────
+PHASE 2.3 — OR-CONDITION / ALTERNATIVE SKILLS
+────────────────────────────────────────────────────────
 
-✅ Extract:
-- "AWS Certified Solutions Architect preferred"
-- "Azure Administrator certification"
-- "PMP certification is a plus"
-- "MBA preferred"
-- "B.Tech/BE required"
+The JD may specify ALTERNATIVE or OPTIONAL skills, like:
 
-❌ If NO certifications mentioned → Return: "none"
+- "SQL or MongoDB"
+- "Kafka or RabbitMQ"
+- "React / Angular / Vue"
+- "AWS, GCP or Azure"
+- "MySQL/PostgreSQL"
 
-## STEP 7: EXTRACT EXCEPTION SKILLS
+For ANY such alternative set, you MUST:
 
-**EXCEPTIONS = Technical skills to AVOID**
+1) Combine them into ONE skill token with "/" between them, e.g.:
+   - "sql/mongodb"
+   - "kafka/rabbitmq"
+   - "react/angular/vue"
+   - "aws/gcp/azure"
+   - "mysql/postgresql"
 
-✅ Extract ONLY technical skills to avoid:
-- "No PHP experience"
-- "Should not have worked with legacy mainframes"
-- "No WordPress developers"
+2) Do NOT split these alternatives into separate skills.
+3) By default, treat these combined tokens as good_to_have_skills,
+   UNLESS the JD clearly states that one of them is mandatory (e.g., "must have experience in either AWS, GCP or Azure").
+4) If the JD clearly states that at least one of the alternatives is mandatory for the role,
+   you MAY put the combined token (e.g., "aws/gcp/azure") under must_have_skills,
+   but still respect the MAX 8 must-have skills rule.
 
-❌ Ignore non-technical exceptions (agency, competitor, fresher restrictions)
 
-❌ If NO exceptions mentioned → Return: "none"
+────────────────────────────────────────────────────────
+PHASE 3 — WIDE DOMAIN SKILL COVERAGE
+────────────────────────────────────────────────────────
 
-## STEP 8: GENERATE JD SNAPSHOT (LinkedIn Format)
+You must support extraction across the full CS/IT spectrum, including but not limited to:
 
-**SNAPSHOT = ~200 word LinkedIn post**
+- Frontend: react, angular, vue, html, css, javascript, typescript
+- Backend: nodejs, express, django, flask, fastapi, spring, dotnet, go, ruby, php, laravel
+- Mobile: kotlin, swift, flutter, reactnative
+- DevOps / Cloud: aws, azure, gcp, docker, kubernetes, terraform, ansible, jenkins, githubactions, gitlabci
+- Data Engineering: spark, kafka, airflow, dbt, hadoop
+- Databases: mysql, postgresql, sqlserver, oracle, mongodb, cassandra, redis, dynamodb, elasticsearch
+- ML / AI: python, tensorflow, pytorch, sklearn, xgboost, langchain, vectordb
+- Cybersecurity: siem, soc, vulnerabilityassessment, penetrationtesting, iam, zeroTrust
+- QA / Automation: selenium, cypress, playwright, junit, pytest
+- Embedded / IoT: c, c++, rtos, microcontrollers, freertos
+- Enterprise: sap, salesforce, oracle-fusion, dynamics365
 
-**CRITICAL FORMAT RULES (Follow examples exactly):**
+Normalize everything to lowercase.
 
-**Structure:**
-1. **Eye-catching header** (one line with emoji/power words)
-2. **Job title + experience** (bold formatting with **)
-3. **Brief role description** (1 sentence)
-4. **Key requirements** (3-5 bullets with ✔ emoji)
-5. **Location** (📍 emoji)
-6. **Application email** (📩 emoji)
-7. **Follow CTA** (👉 emoji)
-8. **Hashtags** (4-6 relevant, all start with #)
 
-**Example Headers (vary these, DON'T repeat):**
-- "This time it is – [Job Title]"
-- "Hiring Security Champs – [Job Title]"
-- "Looking for [skill] experts? Here's an opportunity."
-- "We're now hiring [Job Title]"
-- "Big opportunity alert – [Job Title]"
-- "Join us as [Job Title]"
+────────────────────────────────────────────────────────
+PHASE 4 — SOFT SKILLS
+────────────────────────────────────────────────────────
 
-**Example Footers (vary these):**
-- "Follow Ankyah Nexus for more such opportunities!"
-- "If not started yet, follow Ankyah Nexus for more openings!"
-- "Stay connected with Ankyah Nexus for latest tech jobs!"
+Extract ONLY genuine soft skills, not technical skills.
 
-**Tone:** Professional but engaging, NOT boring corporate speak!
+Valid soft skills include (but are not limited to):
 
-**Rules:**
-- ❌ DON'T mention company name (unless it's a well-known brand boost)
-- ❌ DON'T mention salary/benefits
-- ✅ Keep it crisp: ~200 words
-- ✅ Use emojis strategically (not overdone)
-- ✅ Make it scannable with line breaks
+- communication
+- teamwork
+- leadership
+- ownership
+- accountability
+- problemsolving
+- criticalthinking
+- adaptability
+- selfmanagement
+- timemanagement
+- collaboration
+- analytical
+- agile
+- mentoring
+- stakeholdermanagement
 
-═══════════════════════════════════════════════════════════════
-⚠️ QUALITY CHECKLIST
-═══════════════════════════════════════════════════════════════
+RULES:
+- Even if the JD says "must have excellent communication skills", it still goes under soft_skills.
+- Do NOT put soft skills into must_have_skills or good_to_have_skills.
+- No duplicates. Each soft skill should appear once at most.
 
-☑ Did I read FULL JD before extracting?
-☑ Are must-have skills truly REQUIRED?
-☑ Did I standardize all skills (aws not "Amazon Web Services")?
-☑ Are soft skills separate from technical?
-☑ Is snapshot ~200 words with engaging header/footer?
-☑ Did I use ✔ checkmarks for requirements?
-☑ Did I include location, email, hashtags?
-☑ Did I avoid company name & salary details?
 
-═══════════════════════════════════════════════════════════════
-📤 OUTPUT FORMAT (STRICT JSON - NO MARKDOWN)
-═══════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────
+PHASE 5 — DOMAIN EXPERTISE
+────────────────────────────────────────────────────────
 
-Return ONLY this JSON. NO ```json wrapper. NO explanations.
+"domain_expertise" is about INDUSTRY / BUSINESS CONTEXT, not technologies.
+
+Examples of domain expertise values:
+
+- fintech
+- banking
+- insurance
+- ecommerce
+- retail
+- healthcare
+- pharma
+- telecom
+- saas
+- ai-ml
+- cybersecurity
+- gaming
+- education-tech
+- travel
+- logistics
+- manufacturing
+- govtech
+- media
+
+If the JD clearly indicates a domain (e.g., "payments", "e-commerce platform", "healthcare systems"), add appropriate short tokens.
+
+If there is NO obvious domain, return ["none"].
+
+
+────────────────────────────────────────────────────────
+PHASE 6 — ACCOLADES / CERTIFICATIONS / EDUCATION
+────────────────────────────────────────────────────────
+
+"accolades_keyword" should contain only explicit certifications or education-type requirements, such as:
+
+- btech
+- be
+- bsc
+- mca
+- msc
+- mba
+- phd
+- aws-certified
+- azure-certified
+- gcp-certified
+- cissp
+- pmp
+- scrum-master
+- istqb
+
+Normalize to lowercase, short readable tokens.
+
+If the JD does NOT mention any education or certifications, return ["none"].
+
+
+────────────────────────────────────────────────────────
+PHASE 7 — EXCEPTION SKILLS
+────────────────────────────────────────────────────────
+
+"exception_skills" is for technical skills that the JD explicitly says to AVOID.
+
+Examples:
+- "No PHP developers"
+- "Should not have mainframe experience"
+- "No WordPress-only profiles"
+
+In such cases, extract the mentioned tech as tokens:
+- "php"
+- "mainframe"
+- "wordpress"
+
+If there are NO such exclusion statements, return ["none"].
+
+
+────────────────────────────────────────────────────────
+PHASE 8 — LINKEDIN SNAPSHOT (jd_snapshot)
+────────────────────────────────────────────────────────
+
+You must generate a short LinkedIn-style job post (6–8 lines), based ONLY on the JD.
+
+Rules:
+
+- DO NOT hallucinate company name, salary, or benefits.
+- Use an engaging but professional tone.
+- Use checkmarks (✔) for bullet points.
+- Use emojis: 📍 for location, 📩 for email if present, 👉 for call-to-action.
+- Rough structure:
+
+Line 1: Attention-grabbing header with job title  
+Line 2–3: One-line summary of role and experience  
+Line 4–6: 3–5 bullets with ✔ for key requirements or stack  
+Line 7: Location line if available (📍)  
+Line 8: Application or call-to-action line (📩 / 👉)
+
+Keep it concise and scannable (not more than ~120–150 words).
+
+
+────────────────────────────────────────────────────────
+PHASE 9 — OUTPUT FORMAT (STRICT JSON ONLY)
+────────────────────────────────────────────────────────
+
+You MUST return ONLY a single JSON object with this EXACT structure:
 
 {{
-  "must_have_skills": ["python", "django", "aws", "postgresql", "docker"],
-  "good_to_have_skills": ["kubernetes", "redis", "terraform"],
-  "soft_skills": ["leadership", "agile", "communication"],
-  "domain_expertise": ["fintech", "payment systems"],
-  "accolades_keyword": ["AWS Certified Solutions Architect", "BTech Computer Science"],
-  "exception_skills": "none",
-  "jd_snapshot": "This time it is – Senior Backend Engineer (Python/Django)\\n\\nWe are looking for a Senior Backend Engineer (5-7 years experience) with strong expertise in building scalable APIs and payment systems.\\n\\nYou should have working exposure on:\\n✔ Python, Django, and RESTful API design\\n✔ AWS cloud infrastructure (EC2, S3, RDS)\\n✔ PostgreSQL database optimization\\n✔ Docker containerization and microservices\\n✔ Agile development and team collaboration\\n\\n📍 Location: Remote\\n📩 Share your profile to nextjob@ankyahnexus.com\\n👉 Follow Ankyah Nexus for more such opportunities!\\n\\n#Backend #Python #Django #AWS #RemoteJobs #NowHiring"
-}}
-
-═══════════════════════════════════════════════════════════════
-🎯 PERFECT EXAMPLES
-═══════════════════════════════════════════════════════════════
-
-**EXAMPLE 1: Cloud Security Role**
-
-**Input JD:**
-"Job Title: Azure Cloud Security Engineer
-Experience: 4-5 years
-We need an Azure security expert to secure cloud workloads and automate security processes. Must have deep expertise in Microsoft Defender, Purview, and DLP solutions. Required: Azure Security Engineer certification, PowerShell scripting, ISO 27001 knowledge. Nice to have: Python automation experience."
-
-**Perfect Output:**
-{{
-  "must_have_skills": ["azure", "microsoft defender", "purview", "dlp", "powershell", "iso27001"],
-  "good_to_have_skills": ["python", "automation"],
-  "soft_skills": ["collaboration", "analytical"],
-  "domain_expertise": ["cloud security", "compliance"],
-  "accolades_keyword": ["Azure Security Engineer Associate certification"],
-  "exception_skills": "none",
-  "jd_snapshot": "Hiring Security Champs – Azure Cloud Security Engineer | Remote\\n\\nLooking to invest your cloud security expertise? Here is an opportunity. We're now hiring an Azure Cloud Security Engineer (4–5 years experience) to lead cloud security, automation, and data protection initiatives.\\n\\nYou should have work on:\\n✔ Microsoft Defender, Purview & DLP implementation\\n✔ Azure security automation & PowerShell scripting\\n✔ Threat monitoring, compliance (ISO 27001/GDPR), and incident response\\n\\n📍 Location: Remote\\n📩 Share your profile to nextjob@ankyahnexus.com\\n👉 If not started yet, follow Ankyah Nexus for more openings!\\n\\n#CloudSecurity #AzureSecurity #MicrosoftDefender #CyberSecurityJobs #NowHiring"
-}}
-
-**EXAMPLE 2: GRC Role**
-
-**Input JD:**
-"Job Title: GRC Specialist – Third-Party Risk Management
-Experience: 2-3 years
-Seeking GRC specialist for vendor risk management and compliance. Must have: ISO 27001, GDPR, third-party risk assessment experience. Should manage risk registers and policy governance. Excellent communication required."
-
-**Perfect Output:**
-{{
-  "must_have_skills": ["grc", "tprm", "iso27001", "gdpr", "risk assessment", "vendor management"],
+  "must_have_skills": [],
   "good_to_have_skills": [],
-  "soft_skills": ["communication", "analytical", "projectmanagement"],
-  "domain_expertise": ["governance", "compliance", "risk management"],
-  "accolades_keyword": "none",
-  "exception_skills": "none",
-  "jd_snapshot": "This time it is – GRC Specialist (Third-Party Risk Management)\\n\\nWe are looking for a GRC Specialist (2–3 years experience) with strong expertise in vendor risk management, compliance, and governance frameworks.\\n\\nYou should have working exposure on:\\n✔ Managing Third-Party Risk (onboarding, due diligence)\\n✔ ISO 27001, GDPR, Indian Privacy Law compliance\\n✔ Risk registers, policy governance & executive reporting\\n\\n📍 Location: Remote\\n📩 Share your profile to nextjob@ankyahnexus.com\\n👉 Follow Ankyah Nexus for more such opportunities!\\n\\n#GRCJobs #TPRM #Compliance #InfoSecJobs #RiskManagement #Hiring"
+  "soft_skills": [],
+  "domain_expertise": [],
+  "accolades_keyword": [],
+  "exception_skills": [],
+  "jd_snapshot": ""
 }}
 
-**Why These Are Perfect:**
-✅ Must-have: Core technical requirements clearly identified
-✅ Good-to-have: Bonus skills properly separated
-✅ Soft skills: Non-technical abilities extracted
-✅ Domain: Industry + specific focus areas
-✅ Snapshot: Follows exact LinkedIn format with emojis, checkmarks, email, hashtags
-✅ ~200 words, engaging, scannable
-✅ Different headers to avoid repetition
+CRITICAL RULES:
+- The root type MUST be a JSON object.
+- All keys MUST exist even if values are empty.
+- If no values, use empty list [] or a list with "none" as described above.
+- "jd_snapshot" MUST be a non-empty string.
+- Do NOT wrap JSON in ```json or any markdown.
+- Do NOT add any explanation, comments, or text outside the JSON.
+- Do NOT include your reasoning in the output.
 
-═══════════════════════════════════════════════════════════════
-📄 JOB DESCRIPTION TO ANALYZE:
-═══════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────
+JOB DESCRIPTION TO ANALYZE
+────────────────────────────────────────────────────────
 
 {jd_text}
 
-═══════════════════════════════════════════════════════════════
-⚡ EXTRACT NOW WITH 100% ACCURACY
-═══════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────
+NOW RETURN THE JSON OUTPUT ONLY
+────────────────────────────────────────────────────────
 """
