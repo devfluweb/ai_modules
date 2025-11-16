@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Extraction Testing - Local</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23667eea'/%3E%3Ctext x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='Arial'%3EAI%3C/text%3E%3C/svg%3E">
     <style>
         * {
             margin: 0;
@@ -250,10 +251,76 @@
             border-radius: 5px;
             margin-bottom: 20px;
             display: none;
+            border-left: 4px solid #c00;
         }
         
         .error-message.show {
             display: block;
+        }
+        
+        .error-details {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .error-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+        
+        .error-suggestion {
+            margin-top: 10px;
+            padding: 8px;
+            background: #ffe4b5;
+            border-radius: 3px;
+            color: #856404;
+        }
+        
+        .debug-log {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.9);
+            color: #0f0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75em;
+            max-width: 400px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 9999;
+        }
+        
+        .debug-log.show {
+            display: block;
+        }
+        
+        .debug-toggle {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 9998;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .debug-toggle:hover {
+            background: #5568d3;
         }
         
         .stats {
@@ -300,7 +367,11 @@
         
         <!-- JD Extraction Panel -->
         <div id="jd-panel" class="extraction-panel active">
-            <div class="error-message" id="jd-error"></div>
+            <div class="error-message" id="jd-error">
+                <div class="error-title"></div>
+                <div class="error-details"></div>
+                <div class="error-suggestion"></div>
+            </div>
             
             <div class="input-section">
                 <h3>📝 Paste Job Description</h3>
@@ -374,7 +445,11 @@ Nice to have:
         
         <!-- CV Extraction Panel -->
         <div id="cv-panel" class="extraction-panel">
-            <div class="error-message" id="cv-error"></div>
+            <div class="error-message" id="cv-error">
+                <div class="error-title"></div>
+                <div class="error-details"></div>
+                <div class="error-suggestion"></div>
+            </div>
             
             <div class="input-section">
                 <h3>📤 Upload CV/Resume</h3>
@@ -438,10 +513,102 @@ Nice to have:
         </div>
     </div>
     
+    <!-- Debug Console Toggle -->
+    <button class="debug-toggle" onclick="toggleDebugLog()" title="Toggle Debug Console">
+        🐛
+    </button>
+    
+    <!-- Debug Log Console -->
+    <div class="debug-log" id="debug-log">
+        <div style="border-bottom: 1px solid #0f0; padding-bottom: 5px; margin-bottom: 10px;">
+            <strong>🐛 DEBUG CONSOLE</strong>
+            <button onclick="clearDebugLog()" style="float: right; background: #c00; color: white; border: none; padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 0.9em;">Clear</button>
+        </div>
+        <div id="debug-content"></div>
+    </div>
+    
     <script>
         let selectedFile = null;
+        let debugLogs = [];
+        
+        // Debug logging function
+        function debugLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                'info': '#0f0',
+                'error': '#f00',
+                'warning': '#ff0',
+                'success': '#0ff'
+            };
+            
+            const logEntry = {
+                timestamp,
+                message,
+                type,
+                color: colors[type] || '#0f0'
+            };
+            
+            debugLogs.push(logEntry);
+            updateDebugConsole();
+            
+            // Also log to browser console
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        function updateDebugConsole() {
+            const debugContent = document.getElementById('debug-content');
+            debugContent.innerHTML = debugLogs.map(log => 
+                `<div style="color: ${log.color}; margin-bottom: 5px;">[${log.timestamp}] ${log.message}</div>`
+            ).join('');
+            debugContent.scrollTop = debugContent.scrollHeight;
+        }
+        
+        function toggleDebugLog() {
+            const debugLog = document.getElementById('debug-log');
+            debugLog.classList.toggle('show');
+        }
+        
+        function clearDebugLog() {
+            debugLogs = [];
+            updateDebugConsole();
+            debugLog('Debug log cleared', 'info');
+        }
+        
+        // Enhanced error display function
+        function showError(mode, errorMessage, details = null, suggestion = null) {
+            const errorDiv = document.getElementById(`${mode}-error`);
+            const titleDiv = errorDiv.querySelector('.error-title');
+            const detailsDiv = errorDiv.querySelector('.error-details');
+            const suggestionDiv = errorDiv.querySelector('.error-suggestion');
+            
+            titleDiv.textContent = `❌ Error: ${errorMessage}`;
+            
+            if (details) {
+                detailsDiv.innerHTML = `<strong>Details:</strong><br>${details}`;
+                detailsDiv.style.display = 'block';
+            } else {
+                detailsDiv.style.display = 'none';
+            }
+            
+            if (suggestion) {
+                suggestionDiv.innerHTML = `<strong>💡 Solution:</strong><br>${suggestion}`;
+                suggestionDiv.style.display = 'block';
+            } else {
+                suggestionDiv.style.display = 'none';
+            }
+            
+            errorDiv.classList.add('show');
+            debugLog(`Error in ${mode}: ${errorMessage}`, 'error');
+            if (details) debugLog(`Details: ${details}`, 'error');
+        }
+        
+        // Initialize
+        debugLog('Application initialized', 'success');
+        debugLog('UI loaded successfully', 'info');
         
         function switchMode(mode) {
+            debugLog(`Switching to ${mode} mode`, 'info');
+            
             // Update buttons
             document.querySelectorAll('.mode-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -457,6 +624,8 @@ Nice to have:
             // Reset results
             document.getElementById(`${mode}-results`).classList.remove('show');
             document.getElementById(`${mode}-error`).classList.remove('show');
+            
+            debugLog(`Switched to ${mode} mode successfully`, 'success');
         }
         
         // File upload handling
@@ -486,6 +655,8 @@ Nice to have:
             const file = event.target.files[0];
             if (!file) return;
             
+            debugLog(`File selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`, 'info');
+            
             selectedFile = file;
             
             const fileInfo = document.getElementById('file-info');
@@ -497,9 +668,13 @@ Nice to have:
             `;
             fileInfo.style.display = 'block';
             scanBtn.disabled = false;
+            
+            debugLog('File ready for extraction', 'success');
         }
         
         async function extractJD() {
+            debugLog('Starting JD extraction...', 'info');
+            
             const jdText = document.getElementById('jd-text').value.trim();
             const errorDiv = document.getElementById('jd-error');
             const loadingDiv = document.getElementById('jd-loading');
@@ -510,15 +685,20 @@ Nice to have:
             resultsDiv.classList.remove('show');
             
             if (!jdText || jdText.length < 50) {
-                errorDiv.textContent = '⚠️ Please enter a job description (at least 50 characters)';
-                errorDiv.classList.add('show');
+                showError('jd', 'JD text too short', 
+                    `Current length: ${jdText.length} characters. Minimum required: 50 characters.`,
+                    'Please enter a complete job description with at least 50 characters including skills, requirements, and responsibilities.');
                 return;
             }
             
+            debugLog(`JD text validated: ${jdText.length} characters, ${jdText.split(' ').length} words`, 'success');
+            
             // Show loading
             loadingDiv.classList.add('show');
+            debugLog('Sending request to server...', 'info');
             
             try {
+                const startTime = Date.now();
                 const response = await fetch('/api/extract-jd', {
                     method: 'POST',
                     headers: {
@@ -527,21 +707,49 @@ Nice to have:
                     body: JSON.stringify({ jd_text: jdText })
                 });
                 
+                const responseTime = Date.now() - startTime;
+                debugLog(`Server response received in ${responseTime}ms`, 'info');
+                
                 const result = await response.json();
+                debugLog(`Response status: ${response.status}`, response.ok ? 'success' : 'error');
                 
                 if (!result.success) {
                     throw new Error(result.error);
                 }
+                
+                debugLog('JD extraction successful', 'success');
+                debugLog(`Extracted ${result.data.must_have_skills?.length || 0} must-have skills`, 'info');
                 
                 // Display results
                 displayJDResults(result.data, result.word_count);
                 resultsDiv.classList.add('show');
                 
             } catch (error) {
-                errorDiv.textContent = `❌ Error: ${error.message}`;
-                errorDiv.classList.add('show');
+                debugLog(`Extraction failed: ${error.message}`, 'error');
+                
+                let suggestion = 'Please check the error details above and try again.';
+                let details = error.message;
+                
+                // Provide specific suggestions based on error type
+                if (error.message.includes('API key')) {
+                    suggestion = `Your Gemini API key is invalid or has been revoked. Please:
+                        <br>1. Go to https://aistudio.google.com/app/apikey
+                        <br>2. Create a NEW API key
+                        <br>3. Update your .env file with: GEMINI_API_KEY=your_new_key
+                        <br>4. Restart the server`;
+                    details = 'API Key Error: ' + error.message;
+                } else if (error.message.includes('Network') || error.message.includes('fetch')) {
+                    suggestion = 'Server connection failed. Please ensure the Flask server is running and try again.';
+                    details = 'Connection Error: ' + error.message;
+                } else if (error.message.includes('timeout')) {
+                    suggestion = 'Request timed out. The AI model might be slow. Please try again.';
+                    details = 'Timeout Error: ' + error.message;
+                }
+                
+                showError('jd', 'Extraction Failed', details, suggestion);
             } finally {
                 loadingDiv.classList.remove('show');
+                debugLog('JD extraction process completed', 'info');
             }
         }
         
@@ -591,7 +799,12 @@ Nice to have:
         }
         
         async function extractCV() {
-            if (!selectedFile) return;
+            if (!selectedFile) {
+                showError('cv', 'No file selected', 'Please upload a CV file first.', 'Click the upload area or drag and drop a PDF/DOCX file.');
+                return;
+            }
+            
+            debugLog(`Starting CV extraction for: ${selectedFile.name}`, 'info');
             
             const errorDiv = document.getElementById('cv-error');
             const loadingDiv = document.getElementById('cv-loading');
@@ -603,31 +816,65 @@ Nice to have:
             
             // Show loading
             loadingDiv.classList.add('show');
+            debugLog('Uploading file to server...', 'info');
             
             try {
                 const formData = new FormData();
                 formData.append('cv_file', selectedFile);
                 
+                const startTime = Date.now();
                 const response = await fetch('/api/extract-cv', {
                     method: 'POST',
                     body: formData
                 });
                 
+                const responseTime = Date.now() - startTime;
+                debugLog(`Server response received in ${responseTime}ms`, 'info');
+                
                 const result = await response.json();
+                debugLog(`Response status: ${response.status}`, response.ok ? 'success' : 'error');
                 
                 if (!result.success) {
                     throw new Error(result.error);
                 }
+                
+                debugLog('CV extraction successful', 'success');
+                debugLog(`Extracted text: ${result.extracted_text?.length || 0} characters`, 'info');
+                debugLog(`Extracted ${result.data.cv_must_to_have?.length || 0} primary skills`, 'info');
                 
                 // Display results
                 displayCVResults(result.data, result.extracted_text, result.word_count);
                 resultsDiv.classList.add('show');
                 
             } catch (error) {
-                errorDiv.textContent = `❌ Error: ${error.message}`;
-                errorDiv.classList.add('show');
+                debugLog(`Extraction failed: ${error.message}`, 'error');
+                
+                let suggestion = 'Please check the error details above and try again.';
+                let details = error.message;
+                
+                // Provide specific suggestions based on error type
+                if (error.message.includes('API key')) {
+                    suggestion = `Your Gemini API key is invalid or has been revoked. Please:
+                        <br>1. Go to https://aistudio.google.com/app/apikey
+                        <br>2. Create a NEW API key
+                        <br>3. Update your .env file with: GEMINI_API_KEY=your_new_key
+                        <br>4. Restart the server`;
+                    details = 'API Key Error: ' + error.message;
+                } else if (error.message.includes('file type') || error.message.includes('Invalid')) {
+                    suggestion = 'Please upload a valid PDF or DOCX file. Make sure the file is not corrupted.';
+                    details = 'File Type Error: ' + error.message;
+                } else if (error.message.includes('extract text')) {
+                    suggestion = 'Failed to extract text from the file. The PDF might be scanned images or corrupted. Try a different file.';
+                    details = 'Text Extraction Error: ' + error.message;
+                } else if (error.message.includes('Network') || error.message.includes('fetch')) {
+                    suggestion = 'Server connection failed. Please ensure the Flask server is running and try again.';
+                    details = 'Connection Error: ' + error.message;
+                }
+                
+                showError('cv', 'Extraction Failed', details, suggestion);
             } finally {
                 loadingDiv.classList.remove('show');
+                debugLog('CV extraction process completed', 'info');
             }
         }
         

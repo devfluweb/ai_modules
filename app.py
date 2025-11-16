@@ -32,6 +32,11 @@ def index():
     """Serve the main HTML page"""
     return render_template('index.html')
 
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon to prevent 404 errors"""
+    return '', 204  # No content response
+
 @app.route('/api/extract-jd', methods=['POST'])
 def extract_jd():
     """Extract keywords from JD text"""
