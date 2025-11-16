@@ -8,9 +8,7 @@ import json
 import logging
 from typing import Dict, Any, Tuple
 from datetime import datetime
-
-# Import your AI API client (adjust based on your setup)
-# from your_ai_client import call_gemini_api, call_claude_api
+from clients.gemini_client import GeminiClient
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +29,12 @@ class JDExtractorService:
         """
         self.ai_model = ai_model
         self.step_delay_seconds = 2
+        
+        # Initialize Gemini client
+        if ai_model == "gemini":
+            self.client = GeminiClient()
+        else:
+            self.client = None
         
     async def extract_jd_data(self, jd_text: str) -> Dict[str, Any]:
         """
@@ -212,15 +216,17 @@ Ready to make an impact? Apply now!
         Returns:
             AI response text
         """
-        # TODO: Replace with your actual AI API integration
-        
         if self.ai_model == "gemini":
-            # Example Gemini call
-            # from google.generativeai import GenerativeModel
-            # model = GenerativeModel('gemini-2.0-flash-exp')
-            # response = await model.generate_content_async(prompt)
-            # return response.text
-            pass
+            if not self.client:
+                raise ValueError("Gemini client not initialized")
+            
+            # Call Gemini synchronously (wrapped in async)
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None, 
+                lambda: self.client.model.generate_content(prompt)
+            )
+            return response.text
             
         elif self.ai_model == "claude":
             # Example Claude call
@@ -232,7 +238,7 @@ Ready to make an impact? Apply now!
             #     messages=[{"role": "user", "content": prompt}]
             # )
             # return message.content[0].text
-            pass
+            raise NotImplementedError(f"AI model '{self.ai_model}' integration not implemented")
             
         elif self.ai_model == "gpt":
             # Example GPT call
@@ -243,10 +249,10 @@ Ready to make an impact? Apply now!
             #     messages=[{"role": "user", "content": prompt}]
             # )
             # return response.choices[0].message.content
-            pass
+            raise NotImplementedError(f"AI model '{self.ai_model}' integration not implemented")
         
-        # Placeholder - replace with actual implementation
-        raise NotImplementedError(f"AI model '{self.ai_model}' integration not implemented")
+        else:
+            raise NotImplementedError(f"AI model '{self.ai_model}' integration not implemented")
 
 
 # ============================================

@@ -149,22 +149,35 @@ ANALYSIS INSTRUCTIONS
 - Identify must-have vs nice-to-have
 - Note required vs preferred
 
-**STEP 2: CLASSIFY SKILLS**
-- Must-have = required/essential
-- Good-to-have = preferred/bonus
-- Soft skills = non-technical only
-- Domain = industry + technical area
+**STEP 2: CLASSIFY SKILLS STRICTLY**
+
+**MUST-HAVE = Skills that are REQUIRED/MANDATORY:**
+- Explicitly stated as "required", "must have", "essential"
+- Years of experience specified (e.g., "5+ years Python")
+- Core technologies for the role
+- Skills repeated multiple times in JD
+- Technologies in job title
+
+**GOOD-TO-HAVE = Skills that are OPTIONAL/BONUS:**
+- Explicitly stated as "nice to have", "plus", "bonus", "preferred"
+- Mentioned casually without emphasis
+- "Familiarity with" or "exposure to"
+- Listed in separate "nice to have" section
+- Skills mentioned only once
 
 **STEP 3: STANDARDIZE**
 - Apply 3-step standardization
 - Lowercase, hyphens, no spaces
 - Consistent naming
 
-**STEP 4: VALIDATE**
+**STEP 4: VALIDATE BEFORE RETURNING**
+- Must-have: 5-15 skills typically
+- Good-to-have: 3-10 skills typically
+- Soft skills: non-technical only (3-8 items)
+- Domain: 2-4 items (industry + technical area)
 - No technical skills in soft_skills
 - Accolades = certifications only (or "none")
 - Exceptions = disqualifying skills (or "none")
-- All skills standardized
 
 ===========================================
 OUTPUT FORMAT (STRICT JSON)
