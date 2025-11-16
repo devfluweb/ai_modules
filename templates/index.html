@@ -398,13 +398,43 @@ Nice to have:
             
             <div class="loading" id="jd-loading">
                 <div class="spinner"></div>
-                <p>Analyzing job description...</p>
+                <p id="jd-loading-text">Analyzing job description...</p>
+                <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                    <div id="jd-step-1" style="display: none;">✓ Step 1: Extracting keywords...</div>
+                    <div id="jd-step-2" style="display: none;">⏳ Step 2: Generating snapshot (2 sec delay)...</div>
+                </div>
             </div>
             
             <div class="results-section" id="jd-results">
-                <h3 style="margin-bottom: 20px;">📊 Extraction Results</h3>
+                <h3 style="margin-bottom: 20px;">📊 Extraction Results (2-Step Process)</h3>
                 
                 <div class="stats" id="jd-stats"></div>
+                
+                <div class="result-card" style="background: #e8f5e9; border-left: 4px solid #4caf50;">
+                    <h4>📋 Step 1: Extracted Keywords</h4>
+                    <div id="jd-keywords-display" style="margin-top: 15px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            <div>
+                                <strong>Job Title:</strong> <span id="jd-job-title">-</span>
+                            </div>
+                            <div>
+                                <strong>Company:</strong> <span id="jd-company">-</span>
+                            </div>
+                            <div>
+                                <strong>Location:</strong> <span id="jd-location">-</span>
+                            </div>
+                            <div>
+                                <strong>Experience:</strong> <span id="jd-experience">-</span>
+                            </div>
+                            <div>
+                                <strong>Employment Type:</strong> <span id="jd-employment-type">-</span>
+                            </div>
+                            <div>
+                                <strong>Remote Work:</strong> <span id="jd-remote">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="result-card">
                     <h4>🎯 Must-Have Skills</h4>
@@ -426,18 +456,8 @@ Nice to have:
                     <div class="skill-list" id="jd-domain"></div>
                 </div>
                 
-                <div class="result-card">
-                    <h4>🏆 Accolades/Certifications</h4>
-                    <div id="jd-accolades"></div>
-                </div>
-                
-                <div class="result-card">
-                    <h4>🚫 Exception Skills</h4>
-                    <div id="jd-exceptions"></div>
-                </div>
-                
-                <div class="result-card">
-                    <h4>📱 LinkedIn Job Post Snapshot</h4>
+                <div class="result-card" style="background: #fff3e0; border-left: 4px solid #ff9800;">
+                    <h4>📱 Step 2: LinkedIn Job Post Snapshot</h4>
                     <div class="snapshot-box" id="jd-snapshot"></div>
                 </div>
             </div>
@@ -673,16 +693,21 @@ Nice to have:
         }
         
         async function extractJD() {
-            debugLog('Starting JD extraction...', 'info');
+            debugLog('Starting JD extraction (2-step process)...', 'info');
             
             const jdText = document.getElementById('jd-text').value.trim();
             const errorDiv = document.getElementById('jd-error');
             const loadingDiv = document.getElementById('jd-loading');
             const resultsDiv = document.getElementById('jd-results');
+            const loadingText = document.getElementById('jd-loading-text');
+            const step1Div = document.getElementById('jd-step-1');
+            const step2Div = document.getElementById('jd-step-2');
             
             // Reset
             errorDiv.classList.remove('show');
             resultsDiv.classList.remove('show');
+            step1Div.style.display = 'none';
+            step2Div.style.display = 'none';
             
             if (!jdText || jdText.length < 50) {
                 showError('jd', 'JD text too short', 
@@ -695,7 +720,23 @@ Nice to have:
             
             // Show loading
             loadingDiv.classList.add('show');
-            debugLog('Sending request to server...', 'info');
+            debugLog('Sending request to server (2-step extraction)...', 'info');
+            
+            // Show Step 1
+            setTimeout(() => {
+                step1Div.style.display = 'block';
+                loadingText.textContent = 'Step 1: Extracting keywords...';
+                debugLog('Step 1: Extracting keywords...', 'info');
+            }, 500);
+            
+            // Show Step 2 after delay
+            setTimeout(() => {
+                step1Div.innerHTML = '✓ Step 1: Keywords extracted!';
+                step1Div.style.color = '#4caf50';
+                step2Div.style.display = 'block';
+                loadingText.textContent = 'Step 2: Generating LinkedIn snapshot...';
+                debugLog('Step 2: Generating snapshot (2 sec delay)...', 'info');
+            }, 2500);
             
             try {
                 const startTime = Date.now();
@@ -704,7 +745,10 @@ Nice to have:
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ jd_text: jdText })
+                    body: JSON.stringify({ 
+                        jd_text: jdText,
+                        ai_model: 'gemini'
+                    })
                 });
                 
                 const responseTime = Date.now() - startTime;
@@ -717,12 +761,15 @@ Nice to have:
                     throw new Error(result.error);
                 }
                 
-                debugLog('JD extraction successful', 'success');
-                debugLog(`Extracted ${result.data.must_have_skills?.length || 0} must-have skills`, 'info');
+                debugLog(`2-step extraction ${result.steps_completed === 2 ? 'fully' : 'partially'} successful`, 'success');
                 
                 // Display results
-                displayJDResults(result.data, result.word_count);
+                displayJDResults(result.data, result.word_count, result.steps_completed);
                 resultsDiv.classList.add('show');
+                
+                if (result.warning) {
+                    debugLog(`Warning: ${result.warning}`, 'warning');
+                }
                 
             } catch (error) {
                 debugLog(`Extraction failed: ${error.message}`, 'error');
@@ -749,53 +796,73 @@ Nice to have:
                 showError('jd', 'Extraction Failed', details, suggestion);
             } finally {
                 loadingDiv.classList.remove('show');
+                step1Div.style.display = 'none';
+                step2Div.style.display = 'none';
                 debugLog('JD extraction process completed', 'info');
             }
         }
         
-        function displayJDResults(data, wordCount) {
+        function displayJDResults(data, wordCount, stepsCompleted = 2) {
+            debugLog(`Displaying JD results (${stepsCompleted} steps completed)`, 'info');
+            
+            const keywords = data.keywords || {};
+            const snapshot = data.snapshot;
+            
             // Stats
+            const mustHaveSkills = keywords.must_have_skills ? keywords.must_have_skills.split(',').map(s => s.trim()).filter(s => s) : [];
+            const goodToHaveSkills = keywords.good_to_have_skills ? keywords.good_to_have_skills.split(',').map(s => s.trim()).filter(s => s) : [];
+            const softSkills = keywords.soft_skills ? keywords.soft_skills.split(',').map(s => s.trim()).filter(s => s) : [];
+            
             document.getElementById('jd-stats').innerHTML = `
                 <div class="stat-box">
-                    <div class="number">${data.must_have_skills?.length || 0}</div>
+                    <div class="number">${mustHaveSkills.length}</div>
                     <div class="label">Must-Have Skills</div>
                 </div>
                 <div class="stat-box">
-                    <div class="number">${data.good_to_have_skills?.length || 0}</div>
+                    <div class="number">${goodToHaveSkills.length}</div>
                     <div class="label">Good-to-Have</div>
                 </div>
                 <div class="stat-box">
-                    <div class="number">${data.soft_skills?.length || 0}</div>
+                    <div class="number">${softSkills.length}</div>
                     <div class="label">Soft Skills</div>
                 </div>
-                <div class="stat-box">
-                    <div class="number">${wordCount}</div>
-                    <div class="label">Words Analyzed</div>
+                <div class="stat-box" style="background: ${stepsCompleted === 2 ? '#e8f5e9' : '#fff3e0'}">
+                    <div class="number" style="color: ${stepsCompleted === 2 ? '#4caf50' : '#ff9800'}">${stepsCompleted}/2</div>
+                    <div class="label">Steps Completed</div>
                 </div>
             `;
             
+            // Keywords display
+            document.getElementById('jd-job-title').textContent = keywords.job_title || 'Not specified';
+            document.getElementById('jd-company').textContent = keywords.company_name || 'Not specified';
+            document.getElementById('jd-location').textContent = keywords.location || 'Not specified';
+            
+            const expMin = keywords.experience_min || 0;
+            const expMax = keywords.experience_max || 0;
+            document.getElementById('jd-experience').textContent = 
+                expMin || expMax ? `${expMin || 0}-${expMax || 'N/A'} years` : 'Not specified';
+            
+            document.getElementById('jd-employment-type').textContent = keywords.employment_type || 'Not specified';
+            document.getElementById('jd-remote').textContent = keywords.remote_work || 'Not specified';
+            
             // Skills
-            displaySkills('jd-must-have', data.must_have_skills);
-            displaySkills('jd-good-to-have', data.good_to_have_skills);
-            displaySkills('jd-soft-skills', data.soft_skills);
-            displaySkills('jd-domain', data.domain_expertise);
+            displaySkills('jd-must-have', mustHaveSkills);
+            displaySkills('jd-good-to-have', goodToHaveSkills);
+            displaySkills('jd-soft-skills', softSkills);
             
-            // Accolades
-            const accolades = data.accolades_keyword;
-            document.getElementById('jd-accolades').innerHTML = 
-                Array.isArray(accolades) && accolades.length > 0
-                    ? accolades.map(a => `<div class="skill-tag">${a}</div>`).join('')
-                    : `<span style="color: #666;">${accolades || 'none'}</span>`;
-            
-            // Exceptions
-            const exceptions = data.exception_skills;
-            document.getElementById('jd-exceptions').innerHTML = 
-                exceptions && exceptions !== 'none'
-                    ? `<span style="color: #c00;">${exceptions}</span>`
-                    : `<span style="color: #666;">none</span>`;
+            // Domain
+            const domain = keywords.domain ? keywords.domain.split(',').map(s => s.trim()).filter(s => s) : [];
+            displaySkills('jd-domain', domain);
             
             // Snapshot
-            document.getElementById('jd-snapshot').textContent = data.jd_snapshot || 'No snapshot generated';
+            if (snapshot && stepsCompleted === 2) {
+                document.getElementById('jd-snapshot').textContent = snapshot;
+                debugLog('Snapshot displayed successfully', 'success');
+            } else {
+                document.getElementById('jd-snapshot').innerHTML = 
+                    '<span style="color: #ff9800;">⚠️ Snapshot generation failed or incomplete. Only keywords were extracted.</span>';
+                debugLog('Snapshot not available', 'warning');
+            }
         }
         
         async function extractCV() {

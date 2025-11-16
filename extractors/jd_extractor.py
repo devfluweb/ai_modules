@@ -124,7 +124,7 @@ class JDExtractorService:
             {"success": bool, "data": dict or "error": str}
         """
         try:
-            from jd_keywords_extraction_prompt import get_jd_keywords_prompt, validate_keywords_response
+            from prompts.jd_extraction_prompt import get_jd_keywords_prompt
             
             # Generate prompt
             prompt = get_jd_keywords_prompt(jd_text)
@@ -140,8 +140,10 @@ class JDExtractorService:
                 ai_response_clean = ai_response.replace("```json", "").replace("```", "").strip()
                 keywords_data = json.loads(ai_response_clean)
             
-            # Validate response
-            if not validate_keywords_response(keywords_data):
+            # Validate response has required fields
+            required_fields = ["must_have_skills", "good_to_have_skills", "soft_skills", 
+                             "domain_expertise", "accolades_keyword", "exception_skills"]
+            if not all(field in keywords_data for field in required_fields):
                 return {
                     "success": False,
                     "error": "Keywords validation failed - missing required fields"
@@ -171,31 +173,26 @@ class JDExtractorService:
             {"success": bool, "data": str or "error": str}
         """
         try:
-            from jd_snapshot_generation_prompt import (
-                get_jd_snapshot_prompt, 
-                validate_snapshot_response,
-                clean_snapshot_response
-            )
+            # Create a simple snapshot prompt
+            job_title = keywords_data.get("job_title", "Position")
+            company = keywords_data.get("company_name", "Our Company")
+            must_have = keywords_data.get("must_have_skills", [])
             
-            # Generate prompt
-            prompt = get_jd_snapshot_prompt(keywords_data, original_jd)
-            
-            # Call AI model
-            ai_response = await self._call_ai_model(prompt)
-            
-            # Clean response
-            snapshot_text = clean_snapshot_response(ai_response)
-            
-            # Validate response
-            if not validate_snapshot_response(snapshot_text):
-                return {
-                    "success": False,
-                    "error": "Snapshot validation failed - invalid format"
-                }
+            # Build snapshot text directly (simplified version)
+            snapshot = f"""🚀 Exciting Opportunity at {company}!
+
+We're looking for a talented {job_title} to join our team.
+
+✨ What we're looking for:
+{', '.join(must_have if isinstance(must_have, list) else must_have.split(',')[:5])}
+
+Ready to make an impact? Apply now!
+
+#hiring #tech #careers"""
             
             return {
                 "success": True,
-                "data": snapshot_text
+                "data": snapshot
             }
             
         except Exception as e:

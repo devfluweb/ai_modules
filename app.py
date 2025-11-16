@@ -1,17 +1,19 @@
 """
 Flask Web App for Testing AI Extraction Modules
 Simple local testing interface for CV and JD extraction
+With 2-step JD extraction support
 """
 
 from flask import Flask, request, jsonify, render_template
 from werkzeug.utils import secure_filename
 import os
 import json
+import asyncio
 from datetime import datetime
 
 # Import extraction modules
 from extractors.cv_extractor import CVExtractor
-from extractors.jd_extractor import JDExtractor
+from extractors.jd_extractor import JDExtractorService  # Updated import
 from utils.file_utils import FileTextExtractor
 
 app = Flask(__name__)
@@ -39,10 +41,11 @@ def favicon():
 
 @app.route('/api/extract-jd', methods=['POST'])
 def extract_jd():
-    """Extract keywords from JD text"""
+    """Extract keywords from JD text - 2-step process"""
     try:
         data = request.get_json()
         jd_text = data.get('jd_text', '')
+        ai_model = data.get('ai_model', 'gemini')
         
         if not jd_text or len(jd_text.strip()) < 50:
             return jsonify({
@@ -50,18 +53,46 @@ def extract_jd():
                 'error': 'JD text is too short. Please provide at least 50 characters.'
             }), 400
         
-        # Initialize extractor
-        extractor = JDExtractor()
+        # Initialize 2-step extractor service
+        extractor = JDExtractorService(ai_model=ai_model)
         
-        # Extract
-        result = extractor.extract_from_text(jd_text)
+        # Run async extraction in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(extractor.extract_jd_data(jd_text))
+        loop.close()
         
-        return jsonify({
-            'success': True,
-            'data': result,
-            'word_count': len(jd_text.split()),
-            'timestamp': datetime.now().isoformat()
-        })
+        if result['status'] == 'success':
+            return jsonify({
+                'success': True,
+                'data': {
+                    'keywords': result.get('keywords'),
+                    'snapshot': result.get('snapshot')
+                },
+                'word_count': len(jd_text.split()),
+                'extraction_time': result.get('extraction_time'),
+                'steps_completed': result.get('steps_completed', 2),
+                'timestamp': datetime.now().isoformat()
+            })
+        elif result['status'] == 'partial':
+            return jsonify({
+                'success': True,
+                'data': {
+                    'keywords': result.get('keywords'),
+                    'snapshot': None
+                },
+                'word_count': len(jd_text.split()),
+                'extraction_time': result.get('extraction_time'),
+                'steps_completed': 1,
+                'warning': 'Snapshot generation failed',
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Extraction failed'),
+                'step_failed': result.get('step', 0)
+            }), 500
         
     except Exception as e:
         return jsonify({
