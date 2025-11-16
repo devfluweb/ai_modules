@@ -1,203 +1,291 @@
 """
-JD Extractor Service - Production Ready
-Extracts 7 fields + LinkedIn-style social snapshot
+JD Extractor Service - Two-Step Sequential Process
+Handles keywords extraction (Step 1) followed by snapshot generation (Step 2)
 """
 
-import sys
-import os
-from typing import Dict, Any
+import asyncio
+import json
+import logging
+from typing import Dict, Any, Tuple
+from datetime import datetime
 
-# Import dependencies
-from clients.gemini_client import get_gemini_client
-from prompts.jd_extraction_prompt import get_jd_extraction_prompt
+# Import your AI API client (adjust based on your setup)
+# from your_ai_client import call_gemini_api, call_claude_api
 
-class JDExtractor:
+logger = logging.getLogger(__name__)
+
+
+class JDExtractorService:
     """
-    Extract skills, domain, and generate social media snapshot from JDs.
-    Returns: must_have_skills, good_to_have_skills, soft_skills,
-    domain_expertise, accolades_keyword, exception_skills, jd_snapshot
+    Service to handle two-step JD extraction:
+    1. Keywords extraction
+    2. Snapshot generation (after 2-second delay)
     """
     
-    def __init__(self):
-        """Initialize JD extractor with Gemini 2.5 Flash client"""
-        self.gemini = get_gemini_client()
-        print("✅ JD Extractor initialized (Gemini 2.5 Flash)")
-    
-    def extract_from_text(self, jd_text: str) -> Dict[str, Any]:
+    def __init__(self, ai_model: str = "gemini"):
         """
-        Extract keywords and generate LinkedIn snapshot from JD text.
+        Initialize the extractor service
         
         Args:
-            jd_text: Job description content as text
+            ai_model: AI model to use ("gemini", "claude", "gpt")
+        """
+        self.ai_model = ai_model
+        self.step_delay_seconds = 2
         
+    async def extract_jd_data(self, jd_text: str) -> Dict[str, Any]:
+        """
+        Main extraction method - coordinates both steps sequentially
+        
+        Args:
+            jd_text: Raw job description text
+            
         Returns:
-            Dict with 7 extracted fields
+            Dictionary containing both keywords and snapshot
+            {
+                "keywords": {...},
+                "snapshot": "...",
+                "extraction_time": "...",
+                "status": "success/failed"
+            }
         """
-        print(f"\n{'='*70}")
-        print(f"📋 JD EXTRACTION STARTED")
-        print(f"{'='*70}")
+        start_time = datetime.now()
         
-        # Step 1: Validate input
-        print("\n🔍 Step 1/4: Validating JD text...")
-        if not jd_text or len(jd_text.strip()) < 100:
-            print("❌ JD text too short or empty")
-            return self._get_fallback()
-        
-        word_count = len(jd_text.split())
-        print(f"✅ JD contains {word_count} words")
-        
-        # Step 2: Generate prompt
-        print("\n🤖 Step 2/4: Generating AI prompt...")
-        prompt = get_jd_extraction_prompt(jd_text)
-        
-        # Step 3: Extract using AI
-        print("\n⚡ Step 3/4: Calling Gemini 2.5 Flash API...")
-        result = self.gemini.generate_json(
-            prompt=prompt,
-            max_retries=3,
-            fallback=self._get_fallback()
-        )
-        
-        # Step 4: Validate output
-        print("\n✅ Step 4/4: Validating extraction quality...")
-        result = self._validate_and_fix(result)
-        
-        print(f"\n{'='*70}")
-        print(f"✅ JD EXTRACTION COMPLETED")
-        print(f"{'='*70}")
-        self._print_summary(result)
-        
-        return result
+        try:
+            logger.info("Starting JD extraction - Step 1: Keywords")
+            
+            # ========================================
+            # STEP 1: Extract Keywords
+            # ========================================
+            keywords_result = await self._extract_keywords(jd_text)
+            
+            if not keywords_result["success"]:
+                return {
+                    "status": "failed",
+                    "error": "Keywords extraction failed",
+                    "step": 1,
+                    "extraction_time": str(datetime.now() - start_time)
+                }
+            
+            keywords_data = keywords_result["data"]
+            logger.info(f"Step 1 completed successfully. Job Title: {keywords_data.get('job_title')}")
+            
+            # ========================================
+            # DELAY: 2 seconds
+            # ========================================
+            logger.info(f"Waiting {self.step_delay_seconds} seconds before Step 2...")
+            await asyncio.sleep(self.step_delay_seconds)
+            
+            # ========================================
+            # STEP 2: Generate Snapshot
+            # ========================================
+            logger.info("Starting Step 2: Snapshot generation")
+            snapshot_result = await self._generate_snapshot(keywords_data, jd_text)
+            
+            if not snapshot_result["success"]:
+                return {
+                    "status": "partial",
+                    "keywords": keywords_data,
+                    "snapshot": None,
+                    "error": "Snapshot generation failed",
+                    "step": 2,
+                    "extraction_time": str(datetime.now() - start_time)
+                }
+            
+            snapshot_text = snapshot_result["data"]
+            logger.info("Step 2 completed successfully")
+            
+            # ========================================
+            # RETURN COMPLETE RESULT
+            # ========================================
+            return {
+                "status": "success",
+                "keywords": keywords_data,
+                "snapshot": snapshot_text,
+                "extraction_time": str(datetime.now() - start_time),
+                "steps_completed": 2
+            }
+            
+        except Exception as e:
+            logger.error(f"JD extraction failed: {str(e)}")
+            return {
+                "status": "failed",
+                "error": str(e),
+                "extraction_time": str(datetime.now() - start_time)
+            }
     
-    def _validate_and_fix(self, result: Dict) -> Dict:
+    async def _extract_keywords(self, jd_text: str) -> Dict[str, Any]:
         """
-        Validate extraction and fix common issues.
+        Step 1: Extract keywords from JD
         
-        Checks:
-        - All required fields present
-        - Must-have skills not empty (critical!)
-        - Skills are arrays (not strings)
-        - Snapshot has proper formatting
+        Args:
+            jd_text: Raw JD text
+            
+        Returns:
+            {"success": bool, "data": dict or "error": str}
         """
-        # Ensure all fields exist
-        required_fields = [
-            'must_have_skills',
-            'good_to_have_skills',
-            'soft_skills',
-            'domain_expertise',
-            'accolades_keyword',
-            'exception_skills',
-            'jd_snapshot'
-        ]
-        
-        for field in required_fields:
-            if field not in result:
-                print(f"⚠️ Missing field '{field}', adding empty value")
-                if field == 'jd_snapshot':
-                    result[field] = "Unable to generate JD snapshot."
-                elif field in ['accolades_keyword', 'exception_skills']:
-                    result[field] = "none"
-                else:
-                    result[field] = []
-        
-        # Convert strings to arrays if needed (except accolades and exceptions)
-        for field in ['must_have_skills', 'good_to_have_skills', 'soft_skills', 'domain_expertise']:
-            if isinstance(result[field], str):
-                result[field] = [result[field]] if result[field] else []
-        
-        # Handle accolades_keyword (can be array or "none")
-        if isinstance(result['accolades_keyword'], list) and len(result['accolades_keyword']) == 0:
-            result['accolades_keyword'] = "none"
-        
-        # Handle exception_skills (can be array or "none")
-        if isinstance(result['exception_skills'], list) and len(result['exception_skills']) == 0:
-            result['exception_skills'] = "none"
-        
-        # Critical check: Must-have skills should NEVER be empty
-        must_have = result.get('must_have_skills', [])
-        if not must_have or len(must_have) == 0:
-            print("❌ CRITICAL: No must-have skills extracted!")
-        
-        # Check snapshot format
-        snapshot = result.get('jd_snapshot', '')
-        if '\\n' not in snapshot and len(snapshot) > 50:
-            print("⚠️ Warning: Snapshot missing line breaks (should have \\n)")
-        
-        # Check for technical skills in soft_skills
-        self._check_soft_skills_contamination(result)
-        
-        # Validate snapshot length
-        snapshot_words = len(snapshot.split())
-        if snapshot_words > 250:
-            print(f"⚠️ Warning: Snapshot too long ({snapshot_words} words, target ~200)")
-        elif snapshot_words < 150:
-            print(f"⚠️ Warning: Snapshot too short ({snapshot_words} words, target ~200)")
-        
-        print("✅ Validation passed")
-        return result
+        try:
+            from jd_keywords_extraction_prompt import get_jd_keywords_prompt, validate_keywords_response
+            
+            # Generate prompt
+            prompt = get_jd_keywords_prompt(jd_text)
+            
+            # Call AI model (replace with your actual AI API call)
+            ai_response = await self._call_ai_model(prompt)
+            
+            # Parse JSON response
+            try:
+                keywords_data = json.loads(ai_response)
+            except json.JSONDecodeError:
+                # Try to extract JSON from response if wrapped in markdown
+                ai_response_clean = ai_response.replace("```json", "").replace("```", "").strip()
+                keywords_data = json.loads(ai_response_clean)
+            
+            # Validate response
+            if not validate_keywords_response(keywords_data):
+                return {
+                    "success": False,
+                    "error": "Keywords validation failed - missing required fields"
+                }
+            
+            return {
+                "success": True,
+                "data": keywords_data
+            }
+            
+        except Exception as e:
+            logger.error(f"Keywords extraction error: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
     
-    def _check_soft_skills_contamination(self, result: Dict):
-        """Check if technical skills leaked into soft_skills"""
-        soft_skills = result.get('soft_skills', [])
-        technical_keywords = ['python', 'java', 'react', 'aws', 'docker', 
-                            'sql', 'api', 'django', 'node', 'azure']
+    async def _generate_snapshot(self, keywords_data: dict, original_jd: str) -> Dict[str, Any]:
+        """
+        Step 2: Generate LinkedIn-style snapshot
         
-        for skill in soft_skills:
-            skill_lower = skill.lower()
-            if any(tech in skill_lower for tech in technical_keywords):
-                print(f"⚠️ Warning: Technical skill '{skill}' in soft_skills!")
+        Args:
+            keywords_data: Extracted keywords from Step 1
+            original_jd: Original JD text for context
+            
+        Returns:
+            {"success": bool, "data": str or "error": str}
+        """
+        try:
+            from jd_snapshot_generation_prompt import (
+                get_jd_snapshot_prompt, 
+                validate_snapshot_response,
+                clean_snapshot_response
+            )
+            
+            # Generate prompt
+            prompt = get_jd_snapshot_prompt(keywords_data, original_jd)
+            
+            # Call AI model
+            ai_response = await self._call_ai_model(prompt)
+            
+            # Clean response
+            snapshot_text = clean_snapshot_response(ai_response)
+            
+            # Validate response
+            if not validate_snapshot_response(snapshot_text):
+                return {
+                    "success": False,
+                    "error": "Snapshot validation failed - invalid format"
+                }
+            
+            return {
+                "success": True,
+                "data": snapshot_text
+            }
+            
+        except Exception as e:
+            logger.error(f"Snapshot generation error: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
     
-    def _get_fallback(self) -> Dict:
-        """Fallback structure if extraction fails"""
-        return {
-            "must_have_skills": [],
-            "good_to_have_skills": [],
-            "soft_skills": [],
-            "domain_expertise": [],
-            "accolades_keyword": "none",
-            "exception_skills": "none",
-            "jd_snapshot": "Unable to generate JD snapshot. Please check the job description format."
-        }
-    
-    def _print_summary(self, result: Dict):
-        """Print extraction summary"""
-        print(f"\n📊 EXTRACTION SUMMARY:")
-        print(f"   Must-Have: {len(result.get('must_have_skills', []))} → {', '.join(result.get('must_have_skills', []))}")
-        print(f"   Good-to-Have: {len(result.get('good_to_have_skills', []))} → {', '.join(result.get('good_to_have_skills', []))}")
-        print(f"   Soft Skills: {len(result.get('soft_skills', []))} → {', '.join(result.get('soft_skills', []))}")
-        print(f"   Domain: {len(result.get('domain_expertise', []))} → {', '.join(result.get('domain_expertise', []))}")
-        print(f"   Accolades: {result.get('accolades_keyword', 'none')}")
-        print(f"   Exceptions: {result.get('exception_skills', 'none')}")
-        print(f"   Snapshot: {len(result.get('jd_snapshot', '').split())} words")
+    async def _call_ai_model(self, prompt: str) -> str:
+        """
+        Call the configured AI model with the prompt
         
-        # Print snapshot preview
-        snapshot = result.get('jd_snapshot', '')
-        if snapshot and len(snapshot) > 100:
-            print(f"\n📝 SNAPSHOT PREVIEW:")
-            print(f"   {snapshot[:200]}...")
+        Args:
+            prompt: Formatted prompt string
+            
+        Returns:
+            AI response text
+        """
+        # TODO: Replace with your actual AI API integration
+        
+        if self.ai_model == "gemini":
+            # Example Gemini call
+            # from google.generativeai import GenerativeModel
+            # model = GenerativeModel('gemini-2.0-flash-exp')
+            # response = await model.generate_content_async(prompt)
+            # return response.text
+            pass
+            
+        elif self.ai_model == "claude":
+            # Example Claude call
+            # import anthropic
+            # client = anthropic.Anthropic(api_key="your-key")
+            # message = await client.messages.create_async(
+            #     model="claude-sonnet-4-20250514",
+            #     max_tokens=2000,
+            #     messages=[{"role": "user", "content": prompt}]
+            # )
+            # return message.content[0].text
+            pass
+            
+        elif self.ai_model == "gpt":
+            # Example GPT call
+            # from openai import AsyncOpenAI
+            # client = AsyncOpenAI(api_key="your-key")
+            # response = await client.chat.completions.create(
+            #     model="gpt-4o-mini",
+            #     messages=[{"role": "user", "content": prompt}]
+            # )
+            # return response.choices[0].message.content
+            pass
+        
+        # Placeholder - replace with actual implementation
+        raise NotImplementedError(f"AI model '{self.ai_model}' integration not implemented")
 
-# Example usage
-if __name__ == "__main__":
-    extractor = JDExtractor()
+
+# ============================================
+# USAGE EXAMPLE IN YOUR ROUTE/SERVICE
+# ============================================
+
+"""
+# In your JD routes file (backend/routes/jd_routes.py):
+
+from jd_extractor_service import JDExtractorService
+
+@router.post("/extract")
+async def extract_jd_data(request: JDExtractRequest):
+    '''
+    Endpoint to trigger JD extraction
     
-    # Test with sample JD
-    sample_jd = """
-    Senior Backend Developer - Python/Django
-    
-    We're looking for an experienced Backend Developer with 5+ years of experience.
-    
-    Required Skills:
-    - Strong Python and Django expertise
-    - PostgreSQL database design
-    - AWS cloud services (EC2, S3, RDS)
-    - RESTful API development
-    
-    Nice to have:
-    - Docker and Kubernetes experience
-    - Redis caching
-    
-    You'll work in an agile team and mentor junior developers.
-    """
-    
-    # result = extractor.extract_from_text(sample_jd)
-    # print(json.dumps(result, indent=2))
+    Request body:
+    {
+        "jd_text": "Full job description text...",
+        "ai_model": "gemini"  // optional
+    }
+    '''
+    try:
+        extractor = JDExtractorService(ai_model=request.ai_model or "gemini")
+        result = await extractor.extract_jd_data(request.jd_text)
+        
+        return {
+            "status": result["status"],
+            "data": {
+                "keywords": result.get("keywords"),
+                "snapshot": result.get("snapshot")
+            },
+            "extraction_time": result.get("extraction_time"),
+            "error": result.get("error")
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+"""
