@@ -1,239 +1,231 @@
 """
-CV Extraction Prompt - Final Version for Gemini 2.5 Flash
-Matches DB columns: cv_must_to_have, cv_good_to_have, cv_soft_skills, 
-cv_domain_expertise, cv_accolades, cv_snapshot
+CV Extraction Prompt - PRODUCTION GRADE (STRICT)
+Extracts 6 fields with RIGOROUS classification rules
 """
 
 def get_cv_extraction_prompt(cv_text: str) -> str:
     """
-    Gemini 2.5 Flash optimized CV extraction prompt.
-    Extracts 6 fields with zero-tolerance accuracy.
+    Generate STRICT CV extraction prompt.
+    Primary = PROVEN job experience only
+    Domain = Based on PRIMARY skills only
+    Accolades = TECHNICAL certifications only
+    Snapshot = AI analysis for recruiter
     """
-    return f"""You are an ELITE Technical Recruiter analyzing resumes with surgical precision. Your accuracy must be 100%.
+    
+    prompt = f"""You are an expert technical recruiter analyzing a CV. Extract information with EXTREME STRICTNESS.
 
-═══════════════════════════════════════════════════════════════
-MISSION: Extract skills, domain, accolades, and generate snapshot
-═══════════════════════════════════════════════════════════════
+===========================================
+CRITICAL CLASSIFICATION RULES
+===========================================
 
-## STEP 1: ANALYZE CV CONTEXT
+**SKILL STANDARDIZATION PROCESS (3 STEPS):**
+1. RAW SKILL → 2. CORE SKILL → 3. STANDARDIZED NAME
 
-Read the ENTIRE CV to understand:
-- Total experience (years)
-- Career level (fresher/junior/mid/senior/lead)
-- Primary technical domain (backend/frontend/full-stack/data/devops/mobile/cloud)
-- Recent work history (last 4 years)
+Examples:
+- "ReactJS 18 with Hooks and Redux" → "React" → "react"
+- "AWS Lambda Functions & API Gateway" → "AWS Lambda" → "aws-lambda"
+- "PostgreSQL 14 Database" → "PostgreSQL" → "postgresql"
+- "Machine Learning with TensorFlow" → "TensorFlow" → "tensorflow"
+- "Node.js Backend Development" → "Node.js" → "nodejs"
+- "Docker Containerization" → "Docker" → "docker"
 
-## STEP 2: EXTRACT PRIMARY TECHNICAL SKILLS
+**ALWAYS use lowercase, no spaces, hyphenate multi-word skills**
 
-**PRIMARY = Skills used in projects/work from LAST 4 YEARS**
+===========================================
+PRIMARY TECHNICAL SKILLS (EXTREMELY STRICT)
+===========================================
 
-✅ Extract if:
-- Used in projects from last 4 years
-- Mentioned in "Core Skills" or "Expertise" with recent usage
-- Technologies in recent job responsibilities
-- For freshers (<1 year): All project skills including college projects
+**ONLY INCLUDE IF ALL 3 CONDITIONS MET:**
+1. ✅ Used in PAID JOB (not college/personal projects)
+2. ✅ Used in PRODUCTION/REAL SYSTEMS (not learning/training)
+3. ✅ Used in LAST 4 YEARS from most recent job
 
-❌ NOT Primary:
-- Skills from jobs older than 4 years (unless still used recently)
-- For experienced (2+ yrs): College/internship skills without professional usage
+**INCLUDE:**
+✅ "3 years production experience with Django REST API"
+✅ "Built payment gateway using Stripe in current role"
+✅ "Leading team using React for 2+ years"
+✅ "Deployed microservices with Kubernetes at ABC Corp"
 
-**Standardization Rules:**
-Use abbreviated/short forms:
-- "Machine Learning" → "ml"
-- "Artificial Intelligence" → "ai"
-- "React Native" → "react"
-- "Node.js" → "nodejs"
-- "PostgreSQL" → "postgresql"
-- "Amazon Web Services" → "aws"
-- "Kubernetes" → "kubernetes"
+**EXCLUDE (put in secondary):**
+❌ "Familiar with Docker" → too vague
+❌ "Basic knowledge of AWS" → not production level
+❌ "College project using MongoDB" → not job experience
+❌ "Completed online course in Machine Learning" → training only
+❌ "Currently learning Rust" → not used yet
+❌ Skills mentioned but no proof of work experience
 
-Common standards (use these):
-react, angular, vue, python, java, javascript, nodejs, typescript,
-aws, azure, gcp, docker, kubernetes, terraform, jenkins,
-mysql, postgresql, mongodb, redis, elasticsearch,
-django, flask, fastapi, spring, express,
-ml, ai, tensorflow, pytorch, sklearn,
-restapi, graphql, microservices, cicd
+**If uncertain → PUT IN SECONDARY, NOT PRIMARY**
 
-## STEP 3: EXTRACT SECONDARY TECHNICAL SKILLS
+===========================================
+SECONDARY TECHNICAL SKILLS
+===========================================
 
-**SECONDARY = Skills mentioned but not core strengths**
+**INCLUDE:**
+- Skills from jobs OLDER than 4 years
+- Skills mentioned but no clear job usage
+- Training/certifications but no production use
+- "Familiar with", "Basic knowledge", "Exposure to"
+- College/personal projects (if experienced candidate)
+- Skills candidate is currently learning
 
-✅ Extract if:
-- "Familiar with", "exposure to", "basic knowledge"
-- Skills from projects >4 years ago not used recently
-- For experienced (2+ yrs): Academic/internship skills
-- Technologies mentioned but not deeply worked with
+===========================================
+SOFT SKILLS (MUST HAVE PROOF)
+===========================================
 
-Use same standardization as primary skills.
+**ONLY INCLUDE WITH CLEAR EVIDENCE:**
+✅ "Led team of 5 engineers" → leadership
+✅ "Conducted daily standups and sprint planning" → agile
+✅ "Mentored 3 junior developers" → mentoring
+✅ "Presented to C-suite executives" → communication
 
-## STEP 4: EXTRACT SOFT SKILLS
+**EXCLUDE:**
+❌ Generic claims without proof
+❌ "Good communication skills" (no evidence)
+❌ "Team player" (no specifics)
 
-**SOFT = Non-technical interpersonal abilities**
+**Standardized soft skills list:**
+leadership, mentoring, agile, scrum, communication, problem-solving, team-collaboration
 
-✅ Extract if there's CONTEXT or PROOF:
-- Leadership: "Led team of 5", "Managed 3 developers", "Team Lead", "Mentored juniors"
-- Communication: "Presented to clients", "Conducted training", "Technical writer", "Client-facing role"
-- Agile: "Worked in agile team", "Scrum master", "Sprint planning", "Agile environment"
-- Problem-solving: "Optimized by 40%", "Resolved critical bugs", "Improved performance"
-- Collaboration: "Cross-functional teams", "Collaborated with product managers"
+===========================================
+DOMAIN EXPERTISE (BASED ON PRIMARY SKILLS)
+===========================================
 
-✅ Also extract if mentioned WITH work context:
-- "Strong communication skills in client-facing role" → Extract
-- Just "Team player" without context → DON'T extract
+**DERIVE FROM PRIMARY SKILLS ONLY, NOT FROM:**
+❌ Job titles
+❌ Company names
+❌ Personal interests
+❌ Non-technical experience
 
-Common soft skills (use lowercase):
-leadership, communication, teamwork, problemsolving, agile, scrum, 
-mentoring, collaboration, projectmanagement, adaptability
+**Logic:**
+primary_skills = ["django", "postgresql", "stripe", "payment-gateway"]
+→ domain = ["fintech", "payment-systems", "backend-development"]
 
-## STEP 5: EXTRACT DOMAIN EXPERTISE
+primary_skills = ["react", "typescript", "figma", "css"]
+→ domain = ["frontend-development", "ui-development"]
 
-**DOMAIN = Industries/sectors where candidate has worked**
+primary_skills = ["aws", "terraform", "kubernetes", "docker"]
+→ domain = ["cloud-infrastructure", "devops", "platform-engineering"]
 
-✅ Extract both industry AND specific areas:
-- "Fintech experience building payment gateways" → ["fintech", "payment systems"]
-- "Healthcare domain working on EMR systems" → ["healthcare", "electronic medical records"]
-- "E-commerce platform development" → ["ecommerce", "retail"]
+primary_skills = ["tensorflow", "pytorch", "nlp", "computer-vision"]
+→ domain = ["machine-learning", "ai", "data-science"]
 
-✅ Infer from company names:
-- "Worked at Goldman Sachs" → ["banking", "finance"]
-- "Worked at Amazon" → ["ecommerce", "cloud services"]
-- "Worked at Pfizer" → ["pharmaceutical", "healthcare"]
+**If you can infer industry from company description, add it:**
+"fintech company" → add "fintech"
+"healthcare startup" → add "healthcare"
+"e-commerce platform" → add "e-commerce"
 
-Common domains:
-fintech, banking, healthcare, ecommerce, retail, insurance, 
-telecom, education, logistics, manufacturing, automotive,
-payment systems, lending, trading, medical devices
+===========================================
+ACCOLADES (TECHNICAL CERTIFICATIONS ONLY)
+===========================================
 
-## STEP 6: EXTRACT ACCOLADES
+**INCLUDE ONLY:**
+✅ Technical certifications (AWS, Azure, GCP, etc.)
+✅ Technical degrees (B.Tech CS, M.Tech, MS, PhD)
+✅ Technical training completion (official courses)
+✅ Technical awards (Best Innovation, Tech Excellence)
 
-**ACCOLADES = Certifications, awards, achievements, education**
+**EXCLUDE:**
+❌ Sports achievements
+❌ Non-technical awards ("Employee of the Month")
+❌ Volunteering/social work
+❌ Hobbies and interests
 
-✅ Extract:
-- Certifications: "AWS Certified", "Azure Administrator", "PMP", "Scrum Master"
-- Awards: "Employee of the Year", "Best Performance Award"
-- Education: "MBA", "M.Tech", "B.Tech CSE"
-- Achievements: "Published 3 research papers", "Speaker at conferences"
-- Patents, publications, open-source contributions
+**Examples:**
+✅ "AWS Certified Solutions Architect"
+✅ "Google Cloud Professional Data Engineer"
+✅ "M.Tech Computer Science, IIT Delhi"
+✅ "Certified Kubernetes Administrator (CKA)"
 
-Format as clear statements:
-- "AWS Certified Solutions Architect"
-- "MBA from IIM Bangalore"
-- "Won Best Innovation Award 2023"
+❌ "State level cricket player"
+❌ "Best employee award 2023"
+❌ "Volunteer at NGO"
 
-## STEP 7: GENERATE CV SNAPSHOT
+===========================================
+CV SNAPSHOT (AI ANALYSIS FOR RECRUITER)
+===========================================
 
-**SNAPSHOT = 120-250 word professional summary**
+**PURPOSE:** Help recruiter understand candidate in 30 seconds WITHOUT reading full CV
 
-⚠️ CRITICAL RULES:
-- ❌ NO personal details (name, email, phone, address)
-- ❌ NO company names (use "a leading fintech firm" instead of "Goldman Sachs")
-- ✅ Include: Years of experience, role level, top 4-5 skills, domain, achievements
+**FORMAT:** Professional analysis paragraph (150-200 words)
 
-**Structure:**
-1. Professional identity (1-2 sentences): "[Level] [role] with [X] years..."
-2. Technical expertise (2-3 sentences): "Core expertise in [top 5 skills]..."
-3. Domain & achievements (2-3 sentences): "Specialized in [domain]. Achieved [metrics]..."
-4. Current focus (1 sentence): "Currently focused on [recent tech/domain]..."
+**MUST INCLUDE:**
+1. Seniority level (Junior/Mid/Senior)
+2. Primary role (Backend Engineer, Full-Stack, DevOps, etc.)
+3. Total experience (years)
+4. Key technical strengths (from PRIMARY skills)
+5. Domain expertise
+6. Notable achievements (quantified if possible)
+7. Current/most recent company type
 
-**Length Guidelines:**
-- Fresher (<1 yr): 120-150 words
-- Junior (1-3 yrs): 140-180 words
-- Mid/Senior (3+ yrs): 160-200 words
-- Lead/Architect (7+ yrs): 180-250 words
+**MUST EXCLUDE:**
+❌ Personal details (name, email, phone, address)
+❌ Company names (use "a leading fintech firm", "a Fortune 500 company")
+❌ Job-seeking language ("Looking for opportunities")
+❌ Generic fluff ("passionate", "dedicated")
 
-**Example Snapshot (NO company names, NO personal details):**
-"Senior Full-Stack Engineer with 8+ years of experience building scalable web applications. Core expertise in Python, Django, React, AWS, and PostgreSQL. Specialized in fintech domain, with deep experience in payment processing systems and regulatory compliance. Architected microservices handling 2 million daily transactions with 99.9% uptime. Led migration from monolithic architecture to containerized services, reducing deployment time by 60%. Implemented CI/CD pipelines and automated testing frameworks. Currently focused on cloud-native architectures and serverless technologies."
+**GOOD EXAMPLE:**
+"Senior Backend Engineer with 6 years in fintech. Strong Python/Django expertise with production experience building payment systems handling $50M+ monthly transactions. Proven AWS cloud architecture skills including Lambda, RDS, and S3. Led team of 4 engineers in microservices migration. Domain expertise in payment gateways, fraud detection, and real-time transactions. AWS Certified Solutions Architect. Currently at a Series-B fintech startup."
 
-═══════════════════════════════════════════════════════════════
-⚠️ QUALITY CHECKLIST (Verify before outputting)
-═══════════════════════════════════════════════════════════════
+**BAD EXAMPLE:**
+"Passionate software developer looking for challenging opportunities. Good team player with excellent communication skills. Experience in various technologies. Worked at ABC Corp and XYZ Ltd. Contact: john@email.com"
 
-☑ Did I read the ENTIRE CV before extracting?
-☑ Are primary skills from LAST 4 YEARS only?
-☑ Did I standardize ALL skills (react, not ReactJS)?
-☑ Are soft skills SEPARATE from technical skills?
-☑ Did I infer domain from company names?
-☑ Is snapshot 120-250 words with NO personal details, NO company names?
-☑ Did I avoid adding skills NOT mentioned in CV?
-☑ Are ALL skills lowercase and abbreviated?
+===========================================
+ANALYSIS INSTRUCTIONS
+===========================================
 
-═══════════════════════════════════════════════════════════════
-📤 OUTPUT FORMAT (STRICT JSON - NO MARKDOWN)
-═══════════════════════════════════════════════════════════════
+**STEP 1: READ ENTIRE CV**
+- Understand career progression
+- Identify job vs. non-job experience
+- Note proof vs. claims
 
-Return ONLY this JSON. NO ```json wrapper. NO explanations.
-JSON must start with {{ and end with }}
+**STEP 2: EXTRACT WITH STRICTNESS**
+- Primary = PROVEN + PRODUCTION + RECENT (last 4 years)
+- Secondary = everything else technical
+- Domain = derive from primary skills
+- Accolades = technical only
+- Soft skills = evidence-based only
+
+**STEP 3: STANDARDIZE**
+- Apply 3-step standardization (raw → core → standard)
+- Use lowercase, hyphens, no spaces
+- Check against common variations
+
+**STEP 4: VALIDATE**
+- No technical skills in soft_skills
+- Domain matches primary skills
+- Accolades are technical
+- Snapshot has no personal details
+- Primary skills have clear job evidence
+
+===========================================
+OUTPUT FORMAT (STRICT JSON)
+===========================================
 
 {{
-  "cv_must_to_have": ["python", "django", "react", "aws", "postgresql", "docker"],
-  "cv_good_to_have": ["redis", "elasticsearch", "kubernetes"],
-  "cv_soft_skills": ["leadership", "agile", "communication", "mentoring"],
-  "cv_domain_expertise": ["fintech", "payment systems", "regulatory compliance"],
-  "cv_accolades": ["AWS Certified Solutions Architect", "M.Tech Computer Science", "Best Innovation Award 2022"],
-  "cv_snapshot": "Senior Full-Stack Engineer with 8+ years of experience...",
+  "cv_must_to_have": ["skill1", "skill2", "skill3"],
+  "cv_good_to_have": ["skill4", "skill5"],
+  "cv_soft_skills": ["leadership", "agile"],
+  "cv_domain_expertise": ["fintech", "backend-development"],
+  "cv_accolades": ["AWS Certified", "M.Tech CS"],
+  "cv_snapshot": "Professional analysis paragraph here...",
   "cv_total_words": 185
 }}
 
-═══════════════════════════════════════════════════════════════
-🎯 PERFECT EXAMPLE
-═══════════════════════════════════════════════════════════════
+**CRITICAL:** 
+- Output ONLY valid JSON
+- NO markdown blocks
+- NO explanations
+- NO comments
 
-**Example CV:**
-"Rajesh Kumar - Senior Software Engineer
-Email: rajesh@email.com | Phone: 9876543210
-
-Professional Summary:
-8 years of experience in full-stack development. Currently working at PayTM as Tech Lead.
-
-Skills: Python, Django, ReactJS, PostgreSQL, AWS, Docker, Redis, Machine Learning
-
-Experience:
-Tech Lead, PayTM (2020-2024)
-- Led team of 6 developers building payment gateway
-- Architected microservices using Python and Django
-- Deployed on AWS with Docker containers
-- Reduced transaction failure rate by 35%
-- Implemented real-time monitoring with Elasticsearch
-
-Senior Developer, Flipkart (2018-2020)
-- Built e-commerce APIs using Django REST Framework
-- Worked with React for frontend development
-- Basic exposure to Kubernetes
-
-Education: B.Tech CSE, NIT Trichy
-Certifications: AWS Certified Solutions Architect
-Awards: Employee of the Year 2023
-
-Worked in agile environment. Led sprint planning. Mentored 3 junior developers."
-
-**Perfect JSON Output:**
-{{
-  "cv_must_to_have": ["python", "django", "react", "postgresql", "aws", "docker", "microservices", "restapi"],
-  "cv_good_to_have": ["redis", "ml", "elasticsearch", "kubernetes"],
-  "cv_soft_skills": ["leadership", "agile", "mentoring", "teamwork"],
-  "cv_domain_expertise": ["fintech", "payment systems", "ecommerce"],
-  "cv_accolades": ["AWS Certified Solutions Architect", "BTech CSE NIT Trichy", "Employee of the Year 2023"],
-  "cv_snapshot": "Senior Full-Stack Engineer with 8 years of experience specializing in scalable payment systems and e-commerce platforms. Core expertise in Python, Django, React, AWS, PostgreSQL, and Docker. Deep experience in fintech domain, architecting microservices that process millions of daily transactions. Led development of payment gateway at a leading fintech company, achieving 35% reduction in transaction failures through optimized error handling. Successfully migrated monolithic applications to containerized microservices architecture deployed on AWS. Strong leadership background, having led cross-functional teams and mentored junior developers in agile environments. Currently focused on cloud-native architectures and real-time data processing systems.",
-  "cv_total_words": 102
-}}
-
-**Why This Is Perfect:**
-✅ Primary: All from last 4 years (PayTM 2020-2024)
-✅ Secondary: Redis, ML, K8s (mentioned but not core OR from older role)
-✅ Soft: Leadership, agile proven with "Led team", "mentored", "agile environment"
-✅ Domain: Inferred from PayTM (fintech), Flipkart (ecommerce)
-✅ Accolades: Certification + education + award
-✅ Snapshot: NO personal details (no name, email, phone), NO company names (used "leading fintech company"), includes top skills, domain, achievements
-✅ All skills standardized: "ReactJS" → "react", "Machine Learning" → "ml"
-
-═══════════════════════════════════════════════════════════════
-📄 CV TO ANALYZE:
-═══════════════════════════════════════════════════════════════
+===========================================
+CV TEXT TO ANALYZE
+===========================================
 
 {cv_text}
 
-═══════════════════════════════════════════════════════════════
-⚡ EXTRACT NOW WITH 100% ACCURACY
-═══════════════════════════════════════════════════════════════
+===========================================
+EXTRACT NOW WITH EXTREME STRICTNESS
+===========================================
 """
+    
+    return prompt
